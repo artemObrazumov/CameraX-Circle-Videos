@@ -38,6 +38,11 @@ fun CameraPreview(
         },
         update = {
             println("update")
+            if (state.recording != null) {
+                println("paused")
+                state.recording?.pause()
+            }
+
             cameraProvider?.unbindAll()
             if (state.isVisible) {
                 try {
@@ -50,6 +55,11 @@ fun CameraPreview(
                 } catch (ex: Exception) {
                     ex.printStackTrace()
                 }
+            }
+
+            if (state.recording != null) {
+                println("resumed")
+                state.recording?.resume()
             }
         }
     )
