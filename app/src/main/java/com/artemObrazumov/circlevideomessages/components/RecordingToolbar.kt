@@ -1,15 +1,18 @@
 package com.artemObrazumov.circlevideomessages.components
 
 import androidx.camera.core.CameraSelector
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import com.artemObrazumov.circlevideomessages.camera.CameraState
 import kotlinx.coroutines.launch
 
@@ -23,7 +26,8 @@ fun RecordingToolbar(
     val context = LocalContext.current
 
     Row(
-        modifier = modifier
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         RecordingButton(
             isRecording = state.isRecording,
@@ -51,7 +55,17 @@ fun RecordingToolbar(
             }
         ) {
             Icon(
-                Icons.Default.Refresh,
+                Icons.Default.Cameraswitch,
+                contentDescription = null
+            )
+        }
+
+        IconButton(
+            onClick = {
+            }
+        ) {
+            Icon(
+                Icons.Default.Camera,
                 contentDescription = null
             )
         }
