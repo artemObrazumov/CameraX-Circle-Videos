@@ -37,11 +37,7 @@ fun CameraPreview(
             return@AndroidView view
         },
         update = {
-            println("update")
-            if (state.recording != null) {
-                println("paused")
-                state.recording?.pause()
-            }
+            state.recording?.pause()
 
             cameraProvider?.unbindAll()
             if (state.isVisible) {
@@ -57,10 +53,7 @@ fun CameraPreview(
                 }
             }
 
-            if (state.recording != null) {
-                println("resumed")
-                state.recording?.resume()
-            }
+            state.recording?.resume()
         }
     )
 }

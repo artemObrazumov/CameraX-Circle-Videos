@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
+import kotlin.properties.Delegates
 
 interface CameraState {
 
@@ -32,7 +33,7 @@ interface CameraState {
 
     fun show()
     fun hide()
-    suspend fun startRecording(
+    fun startRecording(
         context: Context,
         name: String = System.currentTimeMillis().toString(),
         relativePath: String = "DCIM/CameraX"
@@ -47,7 +48,9 @@ class CameraStateImpl(
     startingCameraSelector: CameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 ) : CameraState {
 
-    private var _recording: Recording? = null
+    private var _recording: Recording? by Delegates.observable(null) { _, _, newRecording ->
+        _isRecording.value = (newRecording != null)
+    }
 
     private val recorder by lazy {
         recorderBuilder.build()
@@ -94,18 +97,15 @@ class CameraStateImpl(
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    override suspend fun startRecording(
+    override fun startRecording(
         context: Context,
         name: String,
         relativePath: String
     ) {
+        if (recording != null) return
         Log.i("RECORDING", "starting")
         show()
-//        while (!isReadyToRecord()) {
-//            delay(100)
-//        }
         prepareRecording(context, name, relativePath)
-        _isRecording.value = true
     }
 
     @OptIn(ExperimentalPersistentRecording::class)
@@ -135,8 +135,8 @@ class CameraStateImpl(
             .withAudioEnabled()
             .start(
                 ContextCompat.getMainExecutor(context)
-            ) { recordEvent ->
-                println(recordEvent)
+            ) { event ->
+
             }
     }
 
@@ -144,17 +144,12 @@ class CameraStateImpl(
         Log.i("RECORDING", "stopping")
         _recording?.stop()
         _recording = null
-        _isRecording.value = false
         hide()
     }
 
     override fun changeCamera(cameraSelector: CameraSelector) {
         Log.i("RECORDING", "changed camera")
         _cameraSelector.value = cameraSelector
-    }
-
-    private fun isReadyToRecord(): Boolean {
-        return false
     }
 }
 
