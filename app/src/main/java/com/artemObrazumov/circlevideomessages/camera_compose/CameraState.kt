@@ -1,4 +1,4 @@
-package com.artemObrazumov.circlevideomessages.camera
+package com.artemObrazumov.circlevideomessages.camera_compose
 
 import android.Manifest
 import android.content.ContentValues

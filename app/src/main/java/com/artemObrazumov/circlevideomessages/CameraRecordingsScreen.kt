@@ -21,18 +21,24 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.artemObrazumov.circlevideomessages.camera.CameraPreview
-import com.artemObrazumov.circlevideomessages.camera.rememberCameraState
+import com.artemObrazumov.circlevideomessages.camera_compose.CameraPreview
+import com.artemObrazumov.circlevideomessages.camera_compose.rememberCameraState
 import com.artemObrazumov.circlevideomessages.components.RecordingToolbar
+import com.artemObrazumov.circlevideomessages.postprocessing.CirclePostProcessing
+import com.artemObrazumov.circlevideomessages.postprocessing.imagePostProcessing
+import com.artemObrazumov.circlevideomessages.postprocessing.temporaryFile
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun CameraRecordingsScreen(
@@ -44,8 +50,11 @@ fun CameraRecordingsScreen(
             .fillMaxSize()
     ) {
 
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
         var messages by remember { mutableStateOf(listOf<String>()) }
         var messageCleanupJob: Job? = null
+        val circlePostProcessing = remember { CirclePostProcessing(context) }
 
         LaunchedEffect(messages) {
             messageCleanupJob?.cancel()
@@ -100,8 +109,22 @@ fun CameraRecordingsScreen(
                 onRecordingFailure = {
                     messages += "Recording finished with error"
                 },
-                onPhotoSuccess = {
+                onPhotoSuccess = { uri ->
                     messages += "Image capture finished successfully"
+                    uri?.let { temporaryUri ->
+                        val temporaryFile = temporaryUri.temporaryFile(context) ?: return@let
+                        val extension = temporaryFile.extension
+                        val outputFile =
+                            File(temporaryFile.parent, "${temporaryFile.name}_processed.$extension")
+
+                        scope.launch {
+                            temporaryUri.imagePostProcessing(
+                                circlePostProcessing,
+                                outputFile = outputFile,
+                            )
+                            messages += "Image post processing finished successfully"
+                        }
+                    }
                 },
                 onPhotoFailure = {
                     messages += "Image capture finished with error"

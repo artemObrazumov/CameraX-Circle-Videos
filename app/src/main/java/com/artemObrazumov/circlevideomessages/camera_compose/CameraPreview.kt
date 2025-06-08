@@ -1,4 +1,4 @@
-package com.artemObrazumov.circlevideomessages.camera
+package com.artemObrazumov.circlevideomessages.camera_compose
 
 import androidx.camera.core.CameraControl
 import androidx.camera.lifecycle.ProcessCameraProvider

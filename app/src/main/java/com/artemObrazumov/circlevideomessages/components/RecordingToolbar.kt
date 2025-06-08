@@ -1,5 +1,6 @@
 package com.artemObrazumov.circlevideomessages.components
 
+import android.net.Uri
 import androidx.camera.core.CameraSelector
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -15,7 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.artemObrazumov.circlevideomessages.camera.CameraState
+import com.artemObrazumov.circlevideomessages.camera_compose.CameraState
 import kotlinx.coroutines.launch
 
 @Composable
@@ -23,7 +24,7 @@ fun RecordingToolbar(
     state: CameraState,
     onRecordingSuccess: () -> Unit,
     onRecordingFailure: () -> Unit,
-    onPhotoSuccess: () -> Unit,
+    onPhotoSuccess: (Uri?) -> Unit,
     onPhotoFailure: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -78,8 +79,8 @@ fun RecordingToolbar(
             onClick = {
                 state.takePhoto(
                     context = context,
-                    onSuccess = { _ ->
-                        onPhotoSuccess()
+                    onSuccess = { uri ->
+                        onPhotoSuccess(uri)
                     },
                     onFailure = { _ ->
                         onPhotoFailure()
