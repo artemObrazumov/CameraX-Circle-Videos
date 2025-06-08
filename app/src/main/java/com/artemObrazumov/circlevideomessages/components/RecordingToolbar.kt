@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.FlashlightOff
+import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -52,7 +54,8 @@ fun RecordingToolbar(
                         CameraSelector.DEFAULT_FRONT_CAMERA
                     }
                 )
-            }
+            },
+            enabled = state.isVisible
         ) {
             Icon(
                 Icons.Default.Cameraswitch,
@@ -62,10 +65,34 @@ fun RecordingToolbar(
 
         IconButton(
             onClick = {
-            }
+                state.takePhoto(
+                    context = context
+                )
+            },
+            enabled = state.isVisible
         ) {
             Icon(
                 Icons.Default.Camera,
+                contentDescription = null
+            )
+        }
+
+        IconButton(
+            onClick = {
+                if (state.isTorchEnabled) {
+                    state.disableTorch()
+                } else {
+                    state.enableTorch()
+                }
+            },
+            enabled = state.isVisible
+        ) {
+            Icon(
+                if (state.isTorchEnabled) {
+                    Icons.Default.FlashlightOn
+                } else {
+                    Icons.Default.FlashlightOff
+                },
                 contentDescription = null
             )
         }

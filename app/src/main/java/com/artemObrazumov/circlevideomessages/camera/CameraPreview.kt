@@ -1,5 +1,6 @@
 package com.artemObrazumov.circlevideomessages.camera
 
+import androidx.camera.core.CameraControl
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ fun CameraPreview(
     val owner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var cameraProvider: ProcessCameraProvider? by remember { mutableStateOf(null) }
+    var cameraControl: CameraControl? by remember { mutableStateOf(null) }
 
     AndroidView(
         modifier = modifier,
@@ -42,15 +44,23 @@ fun CameraPreview(
             cameraProvider?.unbindAll()
             if (state.isVisible) {
                 try {
-                    cameraProvider?.bindToLifecycle(
+                    val camera = cameraProvider?.bindToLifecycle(
                         owner,
                         state.cameraSelector,
                         state.preview,
-                        state.videoCapture
+                        state.videoCapture,
+                        state.imageCapture
                     )
+                    cameraControl = camera?.cameraControl
                 } catch (ex: Exception) {
                     ex.printStackTrace()
                 }
+            }
+
+            if (state.isTorchEnabled) {
+                cameraControl?.enableTorch(true)
+            } else {
+                cameraControl?.enableTorch(false)
             }
 
             state.recording?.resume()

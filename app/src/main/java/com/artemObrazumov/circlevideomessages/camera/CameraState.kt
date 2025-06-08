@@ -8,6 +8,8 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresPermission
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.video.ExperimentalPersistentRecording
 import androidx.camera.video.MediaStoreOutputOptions
@@ -26,9 +28,11 @@ interface CameraState {
 
     val isVisible: Boolean
     val isRecording: Boolean
+    val isTorchEnabled: Boolean
     val recording: Recording?
     val cameraSelector: CameraSelector
     val preview: Preview
+    val imageCapture: ImageCapture
     val videoCapture: VideoCapture<Recorder>
 
     fun show()
@@ -40,6 +44,14 @@ interface CameraState {
     )
     fun stopRecording()
     fun changeCamera(cameraSelector: CameraSelector)
+    fun takePhoto(
+        context: Context,
+        name: String = System.currentTimeMillis().toString(),
+        relativePath: String = "DCIM/CameraX"
+    )
+
+    fun enableTorch()
+    fun disableTorch()
 }
 
 class CameraStateImpl(
@@ -64,8 +76,15 @@ class CameraStateImpl(
         previewBuilder.build()
     }
 
+    private val _imageCapture by lazy {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+    }
+
     private var _visibilityState = mutableStateOf(false)
     private var _isRecording = mutableStateOf(false)
+    private var _isTorchEnabled = mutableStateOf(false)
     private var _cameraSelector = mutableStateOf(startingCameraSelector)
 
     override val isVisible: Boolean
@@ -73,6 +92,9 @@ class CameraStateImpl(
 
     override val isRecording: Boolean
         get() = _isRecording.value
+
+    override val isTorchEnabled: Boolean
+        get() = _isTorchEnabled.value
 
     override val recording: Recording?
         get() = _recording
@@ -82,6 +104,9 @@ class CameraStateImpl(
 
     override val preview: Preview
         get() = _preview
+
+    override val imageCapture: ImageCapture
+        get() = _imageCapture
 
     override val videoCapture: VideoCapture<Recorder>
         get() = _videoCapture
@@ -150,13 +175,62 @@ class CameraStateImpl(
     override fun changeCamera(cameraSelector: CameraSelector) {
         Log.i("RECORDING", "changed camera")
         _cameraSelector.value = cameraSelector
+        if (cameraSelector != CameraSelector.DEFAULT_BACK_CAMERA) {
+            disableTorch()
+        }
+    }
+
+    override fun takePhoto(
+        context: Context,
+        name: String,
+        relativePath: String
+    ) {
+
+        Log.i("RECORDING", "taking photo")
+        val contentValues = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
+        }
+
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(
+            context.contentResolver,
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            contentValues
+        ).build()
+
+        _imageCapture.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                }
+
+                override fun onError(exception: ImageCaptureException) {
+                }
+            }
+        )
+    }
+
+    override fun enableTorch() {
+        if (_cameraSelector.value == CameraSelector.DEFAULT_BACK_CAMERA) {
+            _isTorchEnabled.value = true
+        }
+    }
+
+    override fun disableTorch() {
+        _isTorchEnabled.value = false
     }
 }
 
 @Composable
-fun rememberCameraState(): CameraState {
+fun rememberCameraState(
+    recorderBuilder: Recorder.Builder = CameraStateDefaults.recorderBuilder,
+    previewBuilder: Preview.Builder = CameraStateDefaults.previewBuilder,
+    startingCameraSelector: CameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+): CameraState {
     return remember {
-        CameraStateImpl()
+        CameraStateImpl(recorderBuilder, previewBuilder, startingCameraSelector)
     }
 }
 
