@@ -3,6 +3,7 @@ package com.artemObrazumov.circlevideomessages.camera
 import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.OptIn
@@ -18,6 +19,7 @@ import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,16 +42,18 @@ interface CameraState {
     fun startRecording(
         context: Context,
         name: String = System.currentTimeMillis().toString(),
-        relativePath: String = "DCIM/CameraX"
+        relativePath: String = "DCIM/CameraX",
+        onFinish: (Uri?, Throwable?) -> Unit = { uri, cause -> },
     )
     fun stopRecording()
     fun changeCamera(cameraSelector: CameraSelector)
     fun takePhoto(
         context: Context,
         name: String = System.currentTimeMillis().toString(),
-        relativePath: String = "DCIM/CameraX"
+        relativePath: String = "DCIM/CameraX",
+        onSuccess: (Uri?) -> Unit = {},
+        onFailure: (ImageCaptureException) -> Unit = {},
     )
-
     fun enableTorch()
     fun disableTorch()
 }
@@ -125,20 +129,22 @@ class CameraStateImpl(
     override fun startRecording(
         context: Context,
         name: String,
-        relativePath: String
+        relativePath: String,
+        onFinish: (Uri?, Throwable?) -> Unit,
     ) {
         if (recording != null) return
         Log.i("RECORDING", "starting")
         show()
-        prepareRecording(context, name, relativePath)
+        startRecordingInternal(context, name, relativePath, onFinish)
     }
 
     @OptIn(ExperimentalPersistentRecording::class)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    private fun prepareRecording(
+    private fun startRecordingInternal(
         context: Context,
         name: String,
-        relativePath: String
+        relativePath: String,
+        onFinish: (Uri?, Throwable?) -> Unit,
     ) {
 
         Log.i("RECORDING", "preparing")
@@ -161,7 +167,9 @@ class CameraStateImpl(
             .start(
                 ContextCompat.getMainExecutor(context)
             ) { event ->
-
+                if (event is VideoRecordEvent.Finalize) {
+                    onFinish(event.outputResults.outputUri, event.cause)
+                }
             }
     }
 
@@ -169,7 +177,6 @@ class CameraStateImpl(
         Log.i("RECORDING", "stopping")
         _recording?.stop()
         _recording = null
-        hide()
     }
 
     override fun changeCamera(cameraSelector: CameraSelector) {
@@ -183,7 +190,9 @@ class CameraStateImpl(
     override fun takePhoto(
         context: Context,
         name: String,
-        relativePath: String
+        relativePath: String,
+        onSuccess: (Uri?) -> Unit,
+        onFailure: (ImageCaptureException) -> Unit
     ) {
 
         Log.i("RECORDING", "taking photo")
@@ -204,9 +213,11 @@ class CameraStateImpl(
             ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    onSuccess(output.savedUri)
                 }
 
                 override fun onError(exception: ImageCaptureException) {
+                    onFailure(exception)
                 }
             }
         )

@@ -21,7 +21,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun RecordingToolbar(
     state: CameraState,
-    modifier: Modifier = Modifier
+    onRecordingSuccess: () -> Unit,
+    onRecordingFailure: () -> Unit,
+    onPhotoSuccess: () -> Unit,
+    onPhotoFailure: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
 
     val scope = rememberCoroutineScope()
@@ -36,7 +40,14 @@ fun RecordingToolbar(
             onStartRecording = {
                 scope.launch {
                     state.startRecording(
-                        context = context
+                        context = context,
+                        onFinish = { uri, _ ->
+                            if (uri == null) {
+                                onRecordingFailure()
+                            } else {
+                                onRecordingSuccess()
+                            }
+                        }
                     )
                 }
             },
@@ -66,7 +77,13 @@ fun RecordingToolbar(
         IconButton(
             onClick = {
                 state.takePhoto(
-                    context = context
+                    context = context,
+                    onSuccess = { _ ->
+                        onPhotoSuccess()
+                    },
+                    onFailure = { _ ->
+                        onPhotoFailure()
+                    }
                 )
             },
             enabled = state.isVisible
