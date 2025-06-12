@@ -9,8 +9,10 @@ import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.FlashlightOff
 import androidx.compose.material.icons.filled.FlashlightOn
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -18,6 +20,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.artemObrazumov.circlevideomessages.camera_compose.CameraState
 import kotlinx.coroutines.launch
+import java.io.File
+import java.util.UUID
 
 @Composable
 fun RecordingToolbar(
@@ -42,6 +46,7 @@ fun RecordingToolbar(
                 scope.launch {
                     state.startRecording(
                         context = context,
+                        outputFile = File(context.cacheDir, UUID.randomUUID().toString()),
                         onFinish = { uri, _ ->
                             if (uri == null) {
                                 onRecordingFailure()
@@ -79,6 +84,7 @@ fun RecordingToolbar(
             onClick = {
                 state.takePhoto(
                     context = context,
+                    outputFile = File(context.cacheDir, UUID.randomUUID().toString()),
                     onSuccess = { uri ->
                         onPhotoSuccess(uri)
                     },
@@ -112,6 +118,21 @@ fun RecordingToolbar(
                     Icons.Default.FlashlightOff
                 },
                 contentDescription = null
+            )
+        }
+
+        Button(
+            enabled = !state.isRecording,
+            onClick = {
+                if (state.isVisible) {
+                    state.hide()
+                } else {
+                    state.show()
+                }
+            }
+        ) {
+            Text(
+                text = if (state.isVisible) "Hide" else "Show"
             )
         }
     }

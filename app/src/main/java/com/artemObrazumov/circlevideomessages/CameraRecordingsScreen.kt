@@ -1,5 +1,6 @@
 package com.artemObrazumov.circlevideomessages
 
+import android.os.Environment.DIRECTORY_PICTURES
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
@@ -115,7 +116,10 @@ fun CameraRecordingsScreen(
                         val temporaryFile = temporaryUri.temporaryFile(context) ?: return@let
                         val extension = temporaryFile.extension
                         val outputFile =
-                            File(temporaryFile.parent, "${temporaryFile.name}_processed.$extension")
+                            File(
+                                context.getExternalFilesDir(DIRECTORY_PICTURES),
+                                "${temporaryFile.nameWithoutExtension}_processed.$extension"
+                            )
 
                         scope.launch {
                             temporaryUri.imagePostProcessing(
@@ -123,6 +127,7 @@ fun CameraRecordingsScreen(
                                 outputFile = outputFile,
                             )
                             messages += "Image post processing finished successfully"
+                            temporaryFile.delete()
                         }
                     }
                 },

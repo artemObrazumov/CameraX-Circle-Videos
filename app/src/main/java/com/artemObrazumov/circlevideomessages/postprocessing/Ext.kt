@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
+import androidx.core.net.toFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -44,9 +45,14 @@ fun Uri.temporaryFile(context: Context): File? {
 
 fun Uri.extension(context: Context): String {
     val mimeType = context.contentResolver.getType(this)
-    return mimeType?.let {
-        MimeTypeMap.getSingleton().getExtensionFromMimeType(it)
-    } ?: ""
+    if (mimeType != null) {
+        return MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType).toString()
+    }
+    return try {
+        toFile().extension
+    } catch (_: Exception) {
+        ""
+    }
 }
 
 fun Context.loadBitmap(uri: Uri): Bitmap {

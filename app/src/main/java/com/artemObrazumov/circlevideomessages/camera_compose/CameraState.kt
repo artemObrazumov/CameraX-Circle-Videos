@@ -5,7 +5,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresPermission
 import androidx.camera.core.CameraSelector
@@ -13,7 +12,9 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.video.ExperimentalPersistentRecording
+import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.MediaStoreOutputOptions
+import androidx.camera.video.OutputOptions
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
@@ -24,45 +25,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
+import java.io.File
 import kotlin.properties.Delegates
 
-interface CameraState {
-
-    val isVisible: Boolean
-    val isRecording: Boolean
-    val isTorchEnabled: Boolean
-    val recording: Recording?
-    val cameraSelector: CameraSelector
-    val preview: Preview
-    val imageCapture: ImageCapture
-    val videoCapture: VideoCapture<Recorder>
-
-    fun show()
-    fun hide()
-    fun startRecording(
-        context: Context,
-        name: String = System.currentTimeMillis().toString(),
-        relativePath: String = "DCIM/CameraX",
-        onFinish: (Uri?, Throwable?) -> Unit = { uri, cause -> },
-    )
-    fun stopRecording()
-    fun changeCamera(cameraSelector: CameraSelector)
-    fun takePhoto(
-        context: Context,
-        name: String = System.currentTimeMillis().toString(),
-        relativePath: String = "DCIM/CameraX",
-        onSuccess: (Uri?) -> Unit = {},
-        onFailure: (ImageCaptureException) -> Unit = {},
-    )
-    fun enableTorch()
-    fun disableTorch()
-}
-
-class CameraStateImpl(
+class CameraState(
     recorderBuilder: Recorder.Builder = CameraStateDefaults.recorderBuilder,
     previewBuilder: Preview.Builder = CameraStateDefaults.previewBuilder,
     startingCameraSelector: CameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
-) : CameraState {
+) {
 
     private var _recording: Recording? by Delegates.observable(null) { _, _, newRecording ->
         _isRecording.value = (newRecording != null)
@@ -91,63 +61,61 @@ class CameraStateImpl(
     private var _isTorchEnabled = mutableStateOf(false)
     private var _cameraSelector = mutableStateOf(startingCameraSelector)
 
-    override val isVisible: Boolean
+    val isVisible: Boolean
         get() = _visibilityState.value
 
-    override val isRecording: Boolean
+    val isRecording: Boolean
         get() = _isRecording.value
 
-    override val isTorchEnabled: Boolean
+    val isTorchEnabled: Boolean
         get() = _isTorchEnabled.value
 
-    override val recording: Recording?
+    val recording: Recording?
         get() = _recording
 
-    override val cameraSelector: CameraSelector
+    val cameraSelector: CameraSelector
         get() = _cameraSelector.value
 
-    override val preview: Preview
+    val preview: Preview
         get() = _preview
 
-    override val imageCapture: ImageCapture
+    val imageCapture: ImageCapture
         get() = _imageCapture
 
-    override val videoCapture: VideoCapture<Recorder>
+    val videoCapture: VideoCapture<Recorder>
         get() = _videoCapture
 
-    override fun show() {
+    fun show() {
         if (_visibilityState.value == true) return
         _visibilityState.value = true
     }
 
-    override fun hide() {
+    fun hide() {
         if (_visibilityState.value == false) return
         _visibilityState.value = false
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    override fun startRecording(
+    fun startRecording(
         context: Context,
-        name: String,
-        relativePath: String,
-        onFinish: (Uri?, Throwable?) -> Unit,
+        name: String = System.currentTimeMillis().toString(),
+        relativePath: String = "DCIM/CameraX",
+        onFinish: (Uri?, Throwable?) -> Unit = { uri, cause -> },
     ) {
         if (recording != null) return
-        Log.i("RECORDING", "starting")
         show()
-        startRecordingInternal(context, name, relativePath, onFinish)
+        startRecordingToMediaStore(context, name, relativePath, onFinish)
     }
 
     @OptIn(ExperimentalPersistentRecording::class)
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    private fun startRecordingInternal(
+    private fun startRecordingToMediaStore(
         context: Context,
         name: String,
         relativePath: String,
         onFinish: (Uri?, Throwable?) -> Unit,
     ) {
 
-        Log.i("RECORDING", "preparing")
         val contentValues = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, name)
             put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
@@ -161,7 +129,45 @@ class CameraStateImpl(
             .setContentValues(contentValues)
             .build()
 
-        _recording = recorder.prepareRecording(context, outputOptions)
+        startRecordingInternal(context, outputOptions, onFinish)
+    }
+
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    fun startRecording(
+        context: Context,
+        outputFile: File,
+        onFinish: (Uri?, Throwable?) -> Unit = { uri, cause -> },
+    ) {
+        if (recording != null) return
+        show()
+        startRecordingToFile(context, outputFile, onFinish)
+    }
+
+    @OptIn(ExperimentalPersistentRecording::class)
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    private fun startRecordingToFile(
+        context: Context,
+        outputFile: File,
+        onFinish: (Uri?, Throwable?) -> Unit,
+    ) {
+        val outputOptions = FileOutputOptions
+            .Builder(outputFile.assertSuffix(MP4))
+            .build()
+        startRecordingInternal(context, outputOptions, onFinish)
+    }
+
+    @OptIn(ExperimentalPersistentRecording::class)
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    private fun startRecordingInternal(
+        context: Context,
+        outputOptions: OutputOptions,
+        onFinish: (Uri?, Throwable?) -> Unit,
+    ) {
+        _recording = when (outputOptions) {
+            is FileOutputOptions -> recorder.prepareRecording(context, outputOptions)
+            is MediaStoreOutputOptions -> recorder.prepareRecording(context, outputOptions)
+            else -> throw IllegalArgumentException("Unsupported output options")
+        }
             .asPersistentRecording()
             .withAudioEnabled()
             .start(
@@ -173,29 +179,37 @@ class CameraStateImpl(
             }
     }
 
-    override fun stopRecording() {
-        Log.i("RECORDING", "stopping")
+    fun stopRecording() {
         _recording?.stop()
         _recording = null
     }
 
-    override fun changeCamera(cameraSelector: CameraSelector) {
-        Log.i("RECORDING", "changed camera")
+    fun changeCamera(cameraSelector: CameraSelector) {
         _cameraSelector.value = cameraSelector
         if (cameraSelector != CameraSelector.DEFAULT_BACK_CAMERA) {
             disableTorch()
         }
     }
 
-    override fun takePhoto(
+    fun takePhoto(
         context: Context,
-        name: String,
-        relativePath: String,
-        onSuccess: (Uri?) -> Unit,
-        onFailure: (ImageCaptureException) -> Unit
+        name: String = System.currentTimeMillis().toString(),
+        relativePath: String = "DCIM/CameraX",
+        onSuccess: (Uri?) -> Unit = {},
+        onFailure: (ImageCaptureException) -> Unit = {},
+    ) {
+        show()
+        takePhotoToMediaStore(context, name, relativePath, onSuccess, onFailure)
+    }
+
+    private fun takePhotoToMediaStore(
+        context: Context,
+        name: String = System.currentTimeMillis().toString(),
+        relativePath: String = "DCIM/CameraX",
+        onSuccess: (Uri?) -> Unit = {},
+        onFailure: (ImageCaptureException) -> Unit = {},
     ) {
 
-        Log.i("RECORDING", "taking photo")
         val contentValues = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, name)
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
@@ -208,6 +222,37 @@ class CameraStateImpl(
             contentValues
         ).build()
 
+        takePhotoInternal(context, outputOptions, onSuccess, onFailure)
+    }
+
+    fun takePhoto(
+        context: Context,
+        outputFile: File,
+        onSuccess: (Uri?) -> Unit = {},
+        onFailure: (ImageCaptureException) -> Unit = {},
+    ) {
+        show()
+        takePhotoToFile(context, outputFile, onSuccess, onFailure)
+    }
+
+    private fun takePhotoToFile(
+        context: Context,
+        outputFile: File,
+        onSuccess: (Uri?) -> Unit = {},
+        onFailure: (ImageCaptureException) -> Unit = {},
+    ) {
+        val outputOptions = ImageCapture.OutputFileOptions
+            .Builder(outputFile.assertSuffix(JPG))
+            .build()
+        takePhotoInternal(context, outputOptions, onSuccess, onFailure)
+    }
+
+    private fun takePhotoInternal(
+        context: Context,
+        outputOptions: ImageCapture.OutputFileOptions,
+        onSuccess: (Uri?) -> Unit,
+        onFailure: (ImageCaptureException) -> Unit
+    ) {
         _imageCapture.takePicture(
             outputOptions,
             ContextCompat.getMainExecutor(context),
@@ -223,14 +268,19 @@ class CameraStateImpl(
         )
     }
 
-    override fun enableTorch() {
+    fun enableTorch() {
         if (_cameraSelector.value == CameraSelector.DEFAULT_BACK_CAMERA) {
             _isTorchEnabled.value = true
         }
     }
 
-    override fun disableTorch() {
+    fun disableTorch() {
         _isTorchEnabled.value = false
+    }
+
+    companion object Suffix {
+        const val JPG = "jpg"
+        const val MP4 = "mp4"
     }
 }
 
@@ -241,7 +291,7 @@ fun rememberCameraState(
     startingCameraSelector: CameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 ): CameraState {
     return remember {
-        CameraStateImpl(recorderBuilder, previewBuilder, startingCameraSelector)
+        CameraState(recorderBuilder, previewBuilder, startingCameraSelector)
     }
 }
 
