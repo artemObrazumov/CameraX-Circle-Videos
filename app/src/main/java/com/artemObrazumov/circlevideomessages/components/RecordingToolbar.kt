@@ -26,7 +26,7 @@ import java.util.UUID
 @Composable
 fun RecordingToolbar(
     state: CameraState,
-    onRecordingSuccess: () -> Unit,
+    onRecordingSuccess: (Uri?) -> Unit,
     onRecordingFailure: () -> Unit,
     onPhotoSuccess: (Uri?) -> Unit,
     onPhotoFailure: () -> Unit,
@@ -51,7 +51,7 @@ fun RecordingToolbar(
                             if (uri == null) {
                                 onRecordingFailure()
                             } else {
-                                onRecordingSuccess()
+                                onRecordingSuccess(uri)
                             }
                         }
                     )

@@ -3,6 +3,9 @@ package com.artemObrazumov.circlevideomessages.postprocessing
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.media.MediaMetadataRetriever
+import android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT
+import android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -28,6 +31,18 @@ suspend fun Uri.imagePostProcessing(
     }
 }
 
+suspend fun Uri.videoPostProcessing(
+    postProcessing: PostProcessing,
+    outputFile: File
+) {
+    withContext(Dispatchers.Main) {
+        postProcessing.processVideo(
+            this@videoPostProcessing,
+            outputFile
+        )
+    }
+}
+
 fun Bitmap.toSoftware(): Bitmap {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || config != Bitmap.Config.HARDWARE) return this
     return copy(Bitmap.Config.ARGB_8888, true)
@@ -41,6 +56,24 @@ fun Uri.temporaryFile(context: Context): File? {
     }
     inputStream.close()
     return temporaryFile
+}
+
+fun Uri.videoSize(context: Context): Pair<Int, Int> {
+    val mediaMetadataRetriever = MediaMetadataRetriever()
+    var width = 0
+    var height = 0
+    try {
+        mediaMetadataRetriever.setDataSource(context, this)
+        width = mediaMetadataRetriever
+            .extractMetadata(METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0
+        height = mediaMetadataRetriever
+            .extractMetadata(METADATA_KEY_VIDEO_HEIGHT)?.toInt() ?: 0
+    } catch (e: Exception) {
+        e.printStackTrace()
+    } finally {
+        mediaMetadataRetriever.release()
+    }
+    return Pair(width, height)
 }
 
 fun Uri.extension(context: Context): String {

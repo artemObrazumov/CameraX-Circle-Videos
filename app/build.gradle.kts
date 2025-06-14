@@ -52,6 +52,7 @@ dependencies {
 
     implementation(libs.material.icons.extended)
     implementation(libs.bundles.camerax)
+    implementation(libs.bundles.media)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

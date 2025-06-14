@@ -1,5 +1,6 @@
 package com.artemObrazumov.circlevideomessages
 
+import android.os.Environment.DIRECTORY_MOVIES
 import android.os.Environment.DIRECTORY_PICTURES
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
@@ -36,6 +37,7 @@ import com.artemObrazumov.circlevideomessages.components.RecordingToolbar
 import com.artemObrazumov.circlevideomessages.postprocessing.CirclePostProcessing
 import com.artemObrazumov.circlevideomessages.postprocessing.imagePostProcessing
 import com.artemObrazumov.circlevideomessages.postprocessing.temporaryFile
+import com.artemObrazumov.circlevideomessages.postprocessing.videoPostProcessing
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -104,16 +106,34 @@ fun CameraRecordingsScreen(
 
             RecordingToolbar(
                 state = state,
-                onRecordingSuccess = {
+                onRecordingSuccess = { uri ->
                     messages += "Recording finished successfully"
+                    uri?.let { uri ->
+                        val temporaryFile = uri.temporaryFile(context) ?: return@let
+                        val extension = temporaryFile.extension
+                        val outputFile =
+                            File(
+                                context.getExternalFilesDir(DIRECTORY_MOVIES),
+                                "${temporaryFile.nameWithoutExtension}_processed.$extension"
+                            )
+
+                        scope.launch {
+                            uri.videoPostProcessing(
+                                circlePostProcessing,
+                                outputFile = outputFile
+                            )
+                            messages += "Video post processing finished successfully"
+                            temporaryFile.delete()
+                        }
+                    }
                 },
                 onRecordingFailure = {
                     messages += "Recording finished with error"
                 },
                 onPhotoSuccess = { uri ->
                     messages += "Image capture finished successfully"
-                    uri?.let { temporaryUri ->
-                        val temporaryFile = temporaryUri.temporaryFile(context) ?: return@let
+                    uri?.let { uri ->
+                        val temporaryFile = uri.temporaryFile(context) ?: return@let
                         val extension = temporaryFile.extension
                         val outputFile =
                             File(
@@ -122,7 +142,7 @@ fun CameraRecordingsScreen(
                             )
 
                         scope.launch {
-                            temporaryUri.imagePostProcessing(
+                            uri.imagePostProcessing(
                                 circlePostProcessing,
                                 outputFile = outputFile,
                             )
